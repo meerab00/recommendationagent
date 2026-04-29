@@ -1,34 +1,26 @@
 
-import pandas as pd
-
 def get_recommendations(df, user_input=None):
 
-    # 🧠 safety checks
+    # safety check
     if df is None or df.empty:
-        return ["❌ No data loaded"]
+        return ["No data found"]
 
-    # 🔍 check required column
     if "product" not in df.columns:
-        return ["❌ 'product' column missing in dataset"]
+        return ["Missing 'product' column"]
 
-    # 🧹 clean data
     df = df.dropna(subset=["product"])
 
-    # 🎯 if category filter needed from user input
+    # simple filtering by input (optional)
     if user_input:
-        user_input = user_input.lower()
+        text = user_input.lower()
 
-        if "skincare" in user_input and "category" in df.columns:
+        if "skincare" in text and "category" in df.columns:
             df = df[df["category"].str.lower() == "skincare"]
 
-        elif "hair" in user_input and "category" in df.columns:
+        elif "hair" in text and "category" in df.columns:
             df = df[df["category"].str.lower() == "haircare"]
 
-        elif "makeup" in user_input and "category" in df.columns:
+        elif "makeup" in text and "category" in df.columns:
             df = df[df["category"].str.lower() == "makeup"]
 
-    # ⭐ remove duplicates
-    recommendations = df["product"].drop_duplicates().tolist()
-
-    # 🔥 return top 5
-    return recommendations[:5] if recommendations else ["No recommendations found"]
+    return df["product"].drop_duplicates().head(5).tolist()
