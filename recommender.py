@@ -1,27 +1,16 @@
-
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
+def get_recommendations(df):
 
-def recommend_items(df, user_input):
+    # safety check
+    if df is None or df.empty:
+        return ["No data found"]
 
-    # combine text data
-    df["combined"] = df.astype(str).agg(" ".join, axis=1)
+    # column check
+    if "product" not in df.columns:
+        return ["Column 'product' not found"]
 
-    # vectorization
-    tfidf = TfidfVectorizer(stop_words="english")
-    matrix = tfidf.fit_transform(df["combined"])
+    # remove duplicates + pick top 5
+    recommendations = df["product"].dropna().unique().tolist()
 
-    # similarity
-    similarity = cosine_similarity(matrix)
-
-    # simple scoring
-    scores = similarity.mean(axis=1)
-
-    df["score"] = scores
-
-    # top recommendations
-    top = df.sort_values(by="score", ascending=False).head(5)
-
-    return top.iloc[:, 0].tolist()
+    return recommendations[:5]
