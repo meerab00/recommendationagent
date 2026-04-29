@@ -11,15 +11,16 @@ if uploaded_file:
     st.success("File Loaded Successfully!")
     st.write(df.head())
 
-    # User ID select karo
-    user_ids = df['user_id'].unique().tolist()
-    selected_user = st.selectbox("Select User ID:", user_ids)
+    # User IDs properly lo
+    user_ids = sorted(df['user_id'].unique().tolist())
+    selected_user = st.selectbox("Select User ID:", user_ids,
+                                  format_func=lambda x: f"User {x}")
 
     user_input = st.chat_input("Ask: recommend me products")
 
     if user_input:
         result = get_recommendations(df, user_input, selected_user)
 
-        st.subheader("Recommendations:")
+        st.subheader(f"Recommendations for User {selected_user}:")
         for item in result:
             st.write("🎯", item)
