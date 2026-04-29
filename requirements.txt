@@ -1,4 +1,4 @@
+
 streamlit
 pandas
-openai
-langchain
+scikit-learn
