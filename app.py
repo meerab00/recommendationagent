@@ -1,32 +1,23 @@
 
 import streamlit as st
 import pandas as pd
-from agent import run_agent
+from recommender import get_recommendations
 
-st.set_page_config(page_title="Advanced AI Agent", layout="wide")
+st.title("🤖 AI Recommendation Agent")
 
-st.title("🤖 Advanced AI Recommendation Agent")
-
-# 📂 Upload file
-uploaded_file = st.file_uploader("Upload CSV dataset", type=["csv"])
+uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
-    st.success("Dataset Loaded Successfully!")
+    st.success("File Loaded Successfully!")
+
     st.write(df.head())
 
-    # 💬 Chat UI
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
-
-    user_input = st.chat_input("Ask me anything (e.g. recommend sad movies)")
+    user_input = st.chat_input("Ask: recommend me products")
 
     if user_input:
-        response = run_agent(user_input, df)
+        result = get_recommendations(df, user_input)
 
-        st.session_state.chat_history.append(("You", user_input))
-        st.session_state.chat_history.append(("AI", response))
-
-    # Show chat
-    for role, msg in st.session_state.chat_history:
-        st.write(f"**{role}:** {msg}")
+        st.subheader("Recommendations:")
+        for item in result:
+            st.write("👉", item)
