@@ -2,32 +2,14 @@
 import streamlit as st
 import pandas as pd
 import networkx as nx
-import os
-import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-# =========================
-# PAGE CONFIG
-# =========================
-st.set_page_config(page_title="AI Recommendation System", layout="centered")
-
-st.title("🤖 Hybrid AI Recommendation System")
-st.write("Graph + Cosine Similarity + Smart Scoring")
+st.title("🤖 Product Recommendation System (Graph + Cosine)")
 
 # =========================
-# OPTIONAL API KEY (NOT REQUIRED FOR CORE SYSTEM)
+# UPLOAD CSV
 # =========================
-api_key = os.getenv("GROK_API_KEY")
-
-if api_key:
-    import requests
-
-headers = {"Authorization": f"Bearer {api_key}"}
-
-# =========================
-# FILE UPLOAD
-# =========================
-uploaded_file = st.file_uploader("📂 Upload CSV File", type=["csv"])
+uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
 if uploaded_file:
 
@@ -37,17 +19,17 @@ if uploaded_file:
     st.write(df.head())
 
     # =========================
-    # VALIDATION
+    # CHECK REQUIRED COLUMNS
     # =========================
-    required_cols = {"user_id", "product", "rating"}
+    required_cols = {"user_id", "product", "rating", "frequency"}
 
     if not required_cols.issubset(df.columns):
-        st.error("CSV must have columns: user_id, product, rating")
+        st.error("CSV must have: user_id, product, rating, frequency")
 
     else:
 
         # =========================
-        # USER-ITEM MATRIX
+        # USER-PRODUCT MATRIX
         # =========================
         matrix = df.pivot_table(
             index="user_id",
@@ -63,60 +45,32 @@ if uploaded_file:
         sim_df = pd.DataFrame(sim_matrix, index=matrix.index, columns=matrix.index)
 
         # =========================
-        # GRAPH CREATION
+        # USER SELECT
         # =========================
-        G = nx.Graph()
-
-        for _, row in df.iterrows():
-            G.add_edge(f"User{row['user_id']}", f"Item{row['product']}", weight=row['rating'])
+        user_id = st.selectbox("Select User", matrix.index)
 
         # =========================
-        # USER SELECTION
-        # =========================
-        user = st.selectbox("👤 Select User", matrix.index)
-
-        # =========================
-        # SIMILAR USER FUNCTION
+        # FIND SIMILAR USER
         # =========================
         def get_sim_user(u):
             sorted_users = sim_df[u].sort_values(ascending=False)
             return sorted_users.index[1], sorted_users.values[1]
 
-        sim_user, sim_score = get_sim_user(user)
+        sim_user, sim_score = get_sim_user(user_id)
 
         st.subheader("🤝 Similar User")
         st.write(f"User {sim_user} (Score: {sim_score:.2f})")
 
         # =========================
-        # ITEMS
+        # RECOMMENDATION LOGIC
         # =========================
-        user_items = set(df[df["user_id"] == user]["product"])
-        sim_items = set(df[df["user_id"] == sim_user]["product"])
+        user_products = set(df[df["user_id"] == user_id]["product"])
+        sim_products = set(df[df["user_id"] == sim_user]["product"])
 
-        raw_recs = list(sim_product - user_product)
-
-        # =========================
-        # POPULARITY SCORE
-        # =========================
-        popularity = df["product"].value_counts().to_dict()
+        recommendations = list(sim_products - user_products)
 
         # =========================
-        # SMART SCORING FUNCTION
-        # =========================
-        def score_item(item):
-            return 0.6 * popularity.get(item, 0) + 0.4 * sim_score * 10
-
-        scored_recs = []
-
-        for item in raw_recs:
-            scored_recs.append((item, score_product(product)))
-
-        scored_recs.sort(key=lambda x: x[1], reverse=True)
-
-        recommendations = [i[0] for i in scored_recs]
-
-        # =========================
-        # FALLBACK SYSTEM
+        # FALLBACK
         # =========================
         if len(recommendations) == 0:
             recommendations = df["product"].value_counts().head(5).index.tolist()
@@ -124,37 +78,20 @@ if uploaded_file:
         # =========================
         # OUTPUT
         # =========================
-        st.subheader("🎯 Recommendations")
+        st.subheader("🎯 Recommended Products")
         st.write(recommendations)
 
         # =========================
-        # GRAPH INFO
+        # GRAPH
         # =========================
+        G = nx.Graph()
+
+        for _, row in df.iterrows():
+            G.add_edge(f"U{row['user_id']}", row['product'], weight=row['rating'])
+
         st.subheader("📊 Graph Info")
         st.write("Nodes:", len(G.nodes))
         st.write("Edges:", len(G.edges))
 
-        # =========================
-        # SIMPLE AI AGENT (NO API REQUIRED)
-        # =========================
-        st.subheader("🤖 AI Agent")
-
-        user_input = st.text_input("Ask (e.g. sad, action, skincare)")
-
-        def agent(text):
-            text = text.lower()
-
-            if "sad" in text:
-                return "💔 Recommend: Emotional / Drama items"
-            elif "action" in text:
-                return "🔥 Recommend: Action items"
-            elif "skincare" in text:
-                return "🧴 Recommend: Cleanser, Serum, Sunscreen"
-            else:
-                return f"🎯 Based on your profile: {recommendations}"
-
-        if user_input:
-            st.write(agent(user_input))
-
 else:
-    st.info("📂 Please upload a CSV file to start")
+    st.info("📂 Upload your CSV file to start")
