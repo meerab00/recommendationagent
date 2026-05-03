@@ -35,7 +35,7 @@ if uploaded_file:
     # =========================
     matrix = df.pivot_table(
         index='user_id',
-        columns='item_id',
+        columns='product',
         values='rating',
         fill_value=0
     )
