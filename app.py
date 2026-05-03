@@ -1,143 +1,158 @@
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import networkx as nx
 import os
-
+import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from dotenv import load_dotenv
 
 # =========================
-# 🔐 LOAD ENV (API KEY)
+# PAGE CONFIG
 # =========================
-load_dotenv()
-API_KEY = os.getenv("GROK_API_KEY")
+st.set_page_config(page_title="AI Recommendation System", layout="centered")
+
+st.title("🤖 Hybrid AI Recommendation System")
+st.write("Graph + Cosine Similarity + Smart Scoring")
 
 # =========================
-# STREAMLIT UI
+# OPTIONAL API KEY (NOT REQUIRED FOR CORE SYSTEM)
 # =========================
-st.title("🤖 AI Graph-Based Recommendation System")
-st.write("Upload dataset and get smart recommendations")
+api_key = os.getenv("GROK_API_KEY")
+
+if api_key:
+    st.info("🔐 API Key detected (optional AI features enabled)")
 
 # =========================
 # FILE UPLOAD
 # =========================
-uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
+uploaded_file = st.file_uploader("📂 Upload CSV File", type=["csv"])
 
 if uploaded_file:
 
     df = pd.read_csv(uploaded_file)
-    st.write("📊 Dataset Preview:", df.head())
+
+    st.subheader("📄 Dataset Preview")
+    st.write(df.head())
 
     # =========================
-    # USER-ITEM MATRIX
+    # VALIDATION
     # =========================
-    matrix = df.pivot_table(
-        index='user_id',
-        columns='product',
-        values='rating',
-        fill_value=0
-    )
+    required_cols = {"user_id", "item_id", "rating"}
 
-    # =========================
-    # COSINE SIMILARITY
-    # =========================
-    similarity = cosine_similarity(matrix)
-    sim_df = pd.DataFrame(similarity, index=matrix.index, columns=matrix.index)
+    if not required_cols.issubset(df.columns):
+        st.error("CSV must have columns: user_id, item_id, rating")
 
-    # =========================
-    # GRAPH CREATION
-    # =========================
-    G = nx.Graph()
+    else:
 
-    for _, row in df.iterrows():
-        G.add_edge(f"User{row['user_id']}", f"Item{row['item_id']}", weight=row['rating'])
+        # =========================
+        # USER-ITEM MATRIX
+        # =========================
+        matrix = df.pivot_table(
+            index="user_id",
+            columns="item_id",
+            values="rating",
+            fill_value=0
+        )
 
-    # =========================
-    # POPULARITY (COUNT)
-    # =========================
-    popular_items = df['item_id'].value_counts()
+        # =========================
+        # COSINE SIMILARITY
+        # =========================
+        sim_matrix = cosine_similarity(matrix)
+        sim_df = pd.DataFrame(sim_matrix, index=matrix.index, columns=matrix.index)
 
-    # =========================
-    # SIDEBAR INPUT
-    # =========================
-    user_id = st.selectbox("Select User ID", df['user_id'].unique())
+        # =========================
+        # GRAPH CREATION
+        # =========================
+        G = nx.Graph()
 
-    # =========================
-    # SIMILAR USER
-    # =========================
-    def get_similar_user(uid):
-        sims = sim_df.loc[uid].sort_values(ascending=False)
-        return sims.index[1], sims.values[1]
+        for _, row in df.iterrows():
+            G.add_edge(f"User{row['user_id']}", f"Item{row['item_id']}", weight=row['rating'])
 
-    sim_user, sim_score = get_similar_user(user_id)
+        # =========================
+        # USER SELECTION
+        # =========================
+        user = st.selectbox("👤 Select User", matrix.index)
 
-    st.subheader("🤝 Similar User")
-    st.write(f"User {sim_user} (Similarity: {sim_score:.2f})")
+        # =========================
+        # SIMILAR USER FUNCTION
+        # =========================
+        def get_sim_user(u):
+            sorted_users = sim_df[u].sort_values(ascending=False)
+            return sorted_users.index[1], sorted_users.values[1]
 
-    # =========================
-    # RECOMMENDATION LOGIC
-    # =========================
-    def recommend(uid, sim_uid):
+        sim_user, sim_score = get_sim_user(user)
 
-        user_items = set(df[df['user_id'] == uid]['item_id'])
-        sim_items = set(df[df['user_id'] == sim_uid]['item_id'])
+        st.subheader("🤝 Similar User")
+        st.write(f"User {sim_user} (Score: {sim_score:.2f})")
 
-        recommendations = list(sim_items - user_items)
+        # =========================
+        # ITEMS
+        # =========================
+        user_items = set(df[df["user_id"] == user]["item_id"])
+        sim_items = set(df[df["user_id"] == sim_user]["item_id"])
 
-        # fallback popularity
+        raw_recs = list(sim_items - user_items)
+
+        # =========================
+        # POPULARITY SCORE
+        # =========================
+        popularity = df["item_id"].value_counts().to_dict()
+
+        # =========================
+        # SMART SCORING FUNCTION
+        # =========================
+        def score_item(item):
+            return 0.6 * popularity.get(item, 0) + 0.4 * sim_score * 10
+
+        scored_recs = []
+
+        for item in raw_recs:
+            scored_recs.append((item, score_item(item)))
+
+        scored_recs.sort(key=lambda x: x[1], reverse=True)
+
+        recommendations = [i[0] for i in scored_recs]
+
+        # =========================
+        # FALLBACK SYSTEM
+        # =========================
         if len(recommendations) == 0:
-            recommendations = popular_items.index[:5].tolist()
+            recommendations = df["item_id"].value_counts().head(5).index.tolist()
 
-        return recommendations
+        # =========================
+        # OUTPUT
+        # =========================
+        st.subheader("🎯 Recommendations")
+        st.write(recommendations)
 
-    recs = recommend(user_id, sim_user)
+        # =========================
+        # GRAPH INFO
+        # =========================
+        st.subheader("📊 Graph Info")
+        st.write("Nodes:", len(G.nodes))
+        st.write("Edges:", len(G.edges))
 
-    st.subheader("🎯 Recommendations")
-    st.write(recs)
+        # =========================
+        # SIMPLE AI AGENT (NO API REQUIRED)
+        # =========================
+        st.subheader("🤖 AI Agent")
 
-    # =========================
-    # GRAPH VISUALIZATION
-    # =========================
-    st.subheader("📊 Graph View")
+        user_input = st.text_input("Ask (e.g. sad, action, skincare)")
 
-    st.write("Nodes:", len(G.nodes()))
-    st.write("Edges:", len(G.edges()))
+        def agent(text):
+            text = text.lower()
 
-    # =========================
-    # SIMPLE AI AGENT (NO API REQUIRED)
-    # =========================
-    st.subheader("🤖 AI Agent")
+            if "sad" in text:
+                return "💔 Recommend: Emotional / Drama items"
+            elif "action" in text:
+                return "🔥 Recommend: Action items"
+            elif "skincare" in text:
+                return "🧴 Recommend: Cleanser, Serum, Sunscreen"
+            else:
+                return f"🎯 Based on your profile: {recommendations}"
 
-    user_input = st.text_input("Ask something (e.g. sad movies, action items)")
+        if user_input:
+            st.write(agent(user_input))
 
-    def ai_agent(text):
-        text = text.lower()
-
-        if "sad" in text:
-            return "💔 Recommend: Drama / Emotional Items"
-        elif "action" in text:
-            return "🔥 Recommend: Action Items"
-        elif "love" in text:
-            return "❤️ Recommend: Romantic Items"
-        else:
-            return f"Based on your profile, recommending: {recs}"
-
-    if user_input:
-        st.write(ai_agent(user_input))
-
-    # =========================
-    # OPTIONAL GROK API (if key exists)
-    # =========================
-    if API_KEY:
-        st.info("GROK API KEY detected (optional integration ready)")
-
-        if st.button("Ask AI (Grok)"):
-            st.write("⚠️ API integration placeholder (depends on Grok endpoint)")
-            st.write("You can connect your API here for advanced responses.")
-
-    # =========================
-    # FOOTER
-    # =========================
-    st.success("System Running Successfully 🚀")
+else:
+    st.info("📂 Please upload a CSV file to start")
