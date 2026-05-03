@@ -84,14 +84,35 @@ if uploaded_file:
         # =========================
         # GRAPH
         # =========================
-        G = nx.Graph()
+        import matplotlib.pyplot as plt
 
-        for _, row in df.iterrows():
-            G.add_edge(f"U{row['user_id']}", row['product'], weight=row['rating'])
+# =========================
+# GRAPH CREATION
+# =========================
+G = nx.Graph()
 
-        st.subheader("📊 Graph Info")
-        st.write("Nodes:", len(G.nodes))
-        st.write("Edges:", len(G.edges))
+for _, row in df.iterrows():
+    G.add_edge(f"U{row['user_id']}", row["product"])
+
+# =========================
+# GRAPH DRAW
+# =========================
+st.subheader("📊 Graph Visualization")
+
+fig, ax = plt.subplots(figsize=(6, 4))
+
+pos = nx.spring_layout(G, seed=42)
+
+nx.draw(
+    G,
+    pos,
+    with_labels=True,
+    node_size=800,
+    font_size=8,
+    ax=ax
+)
+
+st.pyplot(fig)
 
 else:
     st.info("📂 Upload your CSV file to start")
