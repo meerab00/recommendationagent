@@ -1,20 +1,31 @@
 
-from recommender import recommend_items
+import streamlit as st
 
-def run_agent(user_input, df):
+st.title("🤖 AI Recommendation Agent")
 
-    user_input = user_input.lower()
+st.write("Ask anything like: sad movies, action items, love songs")
 
-    # Intent handling (simple AI brain)
-    if "recommend" in user_input or "suggest" in user_input:
+# simple memory-based recommendations
+default_recs = {
+    "sad": ["Drama Movie 1", "Drama Movie 2"],
+    "action": ["Action Movie 1", "Action Movie 2"],
+    "love": ["Romantic Movie 1", "Romantic Movie 2"]
+}
 
-        result = recommend_items(df, user_input)
+user_input = st.text_input("Talk to AI Agent")
 
-        return f"Here are smart recommendations based on your data:\n\n{result}"
+def agent(text):
+    text = text.lower()
 
-    elif "sad" in user_input:
-        result = recommend_items(df, user_input)
-        return f"For sad mood, I found these:\n\n{result}"
-
+    if "sad" in text:
+        return default_recs["sad"]
+    elif "action" in text:
+        return default_recs["action"]
+    elif "love" in text:
+        return default_recs["love"]
     else:
-        return "Tell me like: recommend me products or movies 😊"
+        return ["General Recommendation 1", "General Recommendation 2"]
+
+if user_input:
+    st.subheader("🤖 Agent Response")
+    st.write(agent(user_input))
