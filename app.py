@@ -113,6 +113,3 @@ nx.draw(
 )
 
 st.pyplot(fig)
-
-else:
-    st.info("📂 Upload your CSV file to start")
