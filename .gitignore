@@ -2,7 +2,7 @@
 .env
 
 # Streamlit secrets
-.streamlit/
+.streamlit/secrets.toml
 
 # Python cache
 __pycache__/
