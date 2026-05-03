@@ -1,15 +1,26 @@
 
 import streamlit as st
 import pandas as pd
-import networkx as nx
+
+# Safe imports (graph optional)
+try:
+    import networkx as nx
+    import matplotlib.pyplot as plt
+    GRAPH_AVAILABLE = True
+except:
+    GRAPH_AVAILABLE = False
+
 from sklearn.metrics.pairwise import cosine_similarity
 
-st.title("🤖 Product Recommendation System (Graph + Cosine)")
+# =========================
+# APP TITLE
+# =========================
+st.title("🤖 AI Recommendation System")
 
 # =========================
-# UPLOAD CSV
+# FILE UPLOAD
 # =========================
-uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
 if uploaded_file:
 
@@ -19,12 +30,10 @@ if uploaded_file:
     st.write(df.head())
 
     # =========================
-    # CHECK REQUIRED COLUMNS
+    # CHECK COLUMNS
     # =========================
-    required_cols = {"user_id", "product", "rating", "frequency"}
-
-    if not required_cols.issubset(df.columns):
-        st.error("CSV must have: user_id, product, rating, frequency")
+    if not {"user_id", "product", "rating"}.issubset(df.columns):
+        st.error("CSV must have: user_id, product, rating")
 
     else:
 
@@ -41,75 +50,69 @@ if uploaded_file:
         # =========================
         # COSINE SIMILARITY
         # =========================
-        sim_matrix = cosine_similarity(matrix)
-        sim_df = pd.DataFrame(sim_matrix, index=matrix.index, columns=matrix.index)
+        sim = cosine_similarity(matrix)
+        sim_df = pd.DataFrame(sim, index=matrix.index, columns=matrix.index)
 
         # =========================
         # USER SELECT
         # =========================
-        user_id = st.selectbox("Select User", matrix.index)
+        user = st.selectbox("Select User", matrix.index)
 
         # =========================
-        # FIND SIMILAR USER
+        # SIMILAR USER
         # =========================
         def get_sim_user(u):
             sorted_users = sim_df[u].sort_values(ascending=False)
-            return sorted_users.index[1], sorted_users.values[1]
+            return sorted_users.index[1]
 
-        sim_user, sim_score = get_sim_user(user_id)
+        sim_user = get_sim_user(user)
 
         st.subheader("🤝 Similar User")
-        st.write(f"User {sim_user} (Score: {sim_score:.2f})")
+        st.write(sim_user)
 
         # =========================
-        # RECOMMENDATION LOGIC
+        # RECOMMENDATION
         # =========================
-        user_products = set(df[df["user_id"] == user_id]["product"])
+        user_products = set(df[df["user_id"] == user]["product"])
         sim_products = set(df[df["user_id"] == sim_user]["product"])
 
-        recommendations = list(sim_products - user_products)
+        recs = list(sim_products - user_products)
+
+        if len(recs) == 0:
+            recs = df["product"].value_counts().head(5).index.tolist()
+
+        st.subheader("🎯 Recommendations")
+        st.write(recs)
 
         # =========================
-        # FALLBACK
+        # GRAPH (SAFE OPTIONAL)
         # =========================
-        if len(recommendations) == 0:
-            recommendations = df["product"].value_counts().head(5).index.tolist()
+        if GRAPH_AVAILABLE:
 
-        # =========================
-        # OUTPUT
-        # =========================
-        st.subheader("🎯 Recommended Products")
-        st.write(recommendations)
+            st.subheader("📊 Graph Visualization")
 
-        # =========================
-        # GRAPH
-        # =========================
-        import matplotlib.pyplot as plt
+            G = nx.Graph()
 
-# =========================
-# GRAPH CREATION
-# =========================
-G = nx.Graph()
+            for _, row in df.iterrows():
+                G.add_edge(f"U{row['user_id']}", row["product"])
 
-for _, row in df.iterrows():
-    G.add_edge(f"U{row['user_id']}", row["product"])
+            fig, ax = plt.subplots(figsize=(6, 4))
 
-# =========================
-# GRAPH DRAW
-# =========================
-st.subheader("📊 Graph Visualization")
+            pos = nx.spring_layout(G, seed=42)
 
-fig, ax = plt.subplots(figsize=(6, 4))
+            nx.draw(
+                G,
+                pos,
+                with_labels=True,
+                node_size=700,
+                font_size=8,
+                ax=ax
+            )
 
-pos = nx.spring_layout(G, seed=42)
+            st.pyplot(fig)
 
-nx.draw(
-    G,
-    pos,
-    with_labels=True,
-    node_size=800,
-    font_size=8,
-    ax=ax
-)
+        else:
+            st.warning("Graph visualization not available (install matplotlib + networkx)")
 
-st.pyplot(fig)
+else:
+    st.info("📂 Please upload CSV file")
