@@ -39,10 +39,10 @@ if uploaded_file:
     # =========================
     # VALIDATION
     # =========================
-    required_cols = {"user_id", "item_id", "rating"}
+    required_cols = {"user_id", "product", "rating"}
 
     if not required_cols.issubset(df.columns):
-        st.error("CSV must have columns: user_id, item_id, rating")
+        st.error("CSV must have columns: user_id, product, rating")
 
     else:
 
@@ -68,7 +68,7 @@ if uploaded_file:
         G = nx.Graph()
 
         for _, row in df.iterrows():
-            G.add_edge(f"User{row['user_id']}", f"Item{row['item_id']}", weight=row['rating'])
+            G.add_edge(f"User{row['user_id']}", f"Item{row['product']}", weight=row['rating'])
 
         # =========================
         # USER SELECTION
@@ -90,15 +90,15 @@ if uploaded_file:
         # =========================
         # ITEMS
         # =========================
-        user_items = set(df[df["user_id"] == user]["item_id"])
-        sim_items = set(df[df["user_id"] == sim_user]["item_id"])
+        user_items = set(df[df["user_id"] == user]["product"])
+        sim_items = set(df[df["user_id"] == sim_user]["product"])
 
-        raw_recs = list(sim_items - user_items)
+        raw_recs = list(sim_product - user_product)
 
         # =========================
         # POPULARITY SCORE
         # =========================
-        popularity = df["item_id"].value_counts().to_dict()
+        popularity = df["product"].value_counts().to_dict()
 
         # =========================
         # SMART SCORING FUNCTION
@@ -109,7 +109,7 @@ if uploaded_file:
         scored_recs = []
 
         for item in raw_recs:
-            scored_recs.append((item, score_item(item)))
+            scored_recs.append((item, score_product(product)))
 
         scored_recs.sort(key=lambda x: x[1], reverse=True)
 
@@ -119,7 +119,7 @@ if uploaded_file:
         # FALLBACK SYSTEM
         # =========================
         if len(recommendations) == 0:
-            recommendations = df["item_id"].value_counts().head(5).index.tolist()
+            recommendations = df["product"].value_counts().head(5).index.tolist()
 
         # =========================
         # OUTPUT
