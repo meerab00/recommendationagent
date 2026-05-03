@@ -20,7 +20,9 @@ st.write("Graph + Cosine Similarity + Smart Scoring")
 api_key = os.getenv("GROK_API_KEY")
 
 if api_key:
-    st.info("🔐 API Key detected (optional AI features enabled)")
+    import requests
+
+headers = {"Authorization": f"Bearer {api_key}"}
 
 # =========================
 # FILE UPLOAD
