@@ -1,24 +1,17 @@
 
 import streamlit as st
 import pandas as pd
-
-# Safe imports (graph optional)
-try:
-    import networkx as nx
-    import matplotlib.pyplot as plt
-    GRAPH_AVAILABLE = True
-except:
-    GRAPH_AVAILABLE = False
-
+import networkx as nx
+import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import cosine_similarity
 
 # =========================
 # APP TITLE
 # =========================
-st.title("🤖 AI Recommendation System")
+st.title("🤖 AI Graph Recommendation System")
 
 # =========================
-# FILE UPLOAD
+# UPLOAD CSV
 # =========================
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
@@ -63,56 +56,73 @@ if uploaded_file:
         # =========================
         def get_sim_user(u):
             sorted_users = sim_df[u].sort_values(ascending=False)
-            return sorted_users.index[1]
+            return sorted_users.index[1], sorted_users.values[1]
 
-        sim_user = get_sim_user(user)
+        sim_user, sim_score = get_sim_user(user)
 
         st.subheader("🤝 Similar User")
-        st.write(sim_user)
+        st.write(f"User {sim_user} (Score: {sim_score:.2f})")
 
         # =========================
-        # RECOMMENDATION
+        # USER ITEMS
         # =========================
         user_products = set(df[df["user_id"] == user]["product"])
         sim_products = set(df[df["user_id"] == sim_user]["product"])
 
-        recs = list(sim_products - user_products)
+        # =========================
+        # SCORE SYSTEM (IMPORTANT)
+        # =========================
+        popularity = df["product"].value_counts().to_dict()
 
-        if len(recs) == 0:
-            recs = df["product"].value_counts().head(5).index.tolist()
+        score_list = []
 
+        for item in sim_products:
+
+            pop_score = popularity.get(item, 0)
+
+            score = (sim_score * 10) + pop_score
+
+            score_list.append((item, score))
+
+        # sort by score
+        score_list = sorted(score_list, key=lambda x: x[1], reverse=True)
+
+        recommendations = [i[0] for i in score_list]
+
+        # =========================
+        # FALLBACK
+        # =========================
+        if len(recommendations) == 0:
+            recommendations = df["product"].value_counts().head(5).index.tolist()
+
+        # =========================
+        # OUTPUT
+        # =========================
         st.subheader("🎯 Recommendations")
-        st.write(recs)
+        st.write(recommendations)
 
         # =========================
-        # GRAPH (SAFE OPTIONAL)
+        # GRAPH VISUALIZATION
         # =========================
-        if GRAPH_AVAILABLE:
+        st.subheader("📊 Graph Visualization")
 
-            st.subheader("📊 Graph Visualization")
+        G = nx.Graph()
 
-            G = nx.Graph()
+        for _, row in df.iterrows():
+            G.add_edge(f"U{row['user_id']}", row["product"])
 
-            for _, row in df.iterrows():
-                G.add_edge(f"U{row['user_id']}", row["product"])
+        fig, ax = plt.subplots(figsize=(10, 6))
 
-            fig, ax = plt.subplots(figsize=(6, 4))
+        pos = nx.spring_layout(G, seed=42)
 
-            pos = nx.spring_layout(G, seed=42)
+        nx.draw_networkx_nodes(G, pos, node_size=800, node_color="lightblue", ax=ax)
+        nx.draw_networkx_edges(G, pos, alpha=0.5, ax=ax)
+        nx.draw_networkx_labels(G, pos, font_size=8, ax=ax)
 
-            nx.draw(
-                G,
-                pos,
-                with_labels=True,
-                node_size=700,
-                font_size=8,
-                ax=ax
-            )
+        ax.set_title("User-Product Graph")
+        ax.axis("off")
 
-            st.pyplot(fig)
-
-        else:
-            st.warning("Graph visualization not available (install matplotlib + networkx)")
+        st.pyplot(fig)
 
 else:
-    st.info("📂 Please upload CSV file")
+    st.info("📂 Upload CSV file to start")
